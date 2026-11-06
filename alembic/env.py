@@ -1,9 +1,17 @@
+import os
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import create_engine
 
 from app import models  # noqa: F401  (registers tables on Base.metadata)
-from app.db import Base, engine
+from app.db import Base, _normalise_url, engine
+
+# Migrations need a session-mode connection (DDL + prepared statements), not the transaction
+# pooler the app uses on Vercel. Supabase's integration provides POSTGRES_URL_NON_POOLING for this.
+_migration_url = os.environ.get("MIGRATION_DATABASE_URL") or os.environ.get("POSTGRES_URL_NON_POOLING")
+if _migration_url:
+    engine = create_engine(_normalise_url(_migration_url), future=True)
 
 config = context.config
 if config.config_file_name is not None:

@@ -16,19 +16,23 @@ uvicorn app.main:app --reload
 The app runs as one Python serverless function: [api/index.py](api/index.py) exposes the FastAPI app and
 [vercel.json](vercel.json) routes every path to it.
 
-1. **Database.** Use a hosted Postgres (Neon, Supabase, Vercel Postgres…). Use its *pooled* connection
-   string for `DATABASE_URL` (on Vercel the app opens one connection per request, with no pool of its own).
-2. **Run migrations** from your machine against that database (Vercel doesn't run them):
+1. **Database (Supabase).** Connect Supabase to the Vercel project through the Vercel integration. It sets
+   `POSTGRES_URL` (transaction pooler, port 6543), which the app uses automatically when `DATABASE_URL`
+   isn't set. Don't set `DATABASE_URL` on Vercel.
+2. **Run migrations** from your machine (Vercel doesn't run them). Set `DATABASE_URL` in `.env` to the
+   `POSTGRES_URL_NON_POOLING` value (port 5432), then:
    ```bash
-   DATABASE_URL="<direct, non-pooled url>" alembic upgrade head
+   alembic upgrade head
    ```
+   Migration `0002` turns on row-level security, so Supabase's public REST API (anon key) can't read the
+   tables. The backend connects as the table owner and isn't affected.
 3. **Import the repo** in Vercel (Framework preset: *Other*, no build command).
 4. **Set environment variables** (Project → Settings → Environment Variables):
 
    | Variable | Value |
    | --- | --- |
    | `APP_ENV` | `production` |
-   | `DATABASE_URL` | pooled Postgres URL |
+   | `POSTGRES_URL` | set automatically by the Supabase integration |
    | `SESSION_SECRET` | 32+ random chars (`python -c "import secrets; print(secrets.token_urlsafe(48))"`) |
    | `TURNSTILE_SECRET_KEY` | your Cloudflare Turnstile secret |
    | `APP_URL` | your frontend origin(s), comma-separated, e.g. `https://myapp.vercel.app` |

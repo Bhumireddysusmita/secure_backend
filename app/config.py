@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -15,7 +15,9 @@ class Settings(BaseSettings):
 
     env: Literal["development", "test", "production"] = Field(default="development", alias="APP_ENV")
 
-    database_url: str = Field(alias="DATABASE_URL")
+    # DATABASE_URL wins; otherwise use POSTGRES_URL, which the Vercel Supabase integration sets
+    # automatically (Supabase's transaction pooler, port 6543).
+    database_url: str = Field(validation_alias=AliasChoices("DATABASE_URL", "POSTGRES_URL"))
     session_secret: str = Field(min_length=32, alias="SESSION_SECRET")
 
     turnstile_secret_key: str = Field(alias="TURNSTILE_SECRET_KEY")
