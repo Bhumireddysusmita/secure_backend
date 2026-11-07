@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -64,8 +65,8 @@ async def security_middleware(request: Request, call_next):
             return response
 
     # CSRF defence in depth (the cookie is also SameSite=Lax and auth bodies must be JSON):
-    # reject cross-site browser requests to state-changing API routes.
-    if is_api and request.method in UNSAFE_METHODS:
+    # reject cross-site browser requests to state-changing API routes. Skipped when APP_URL=*.
+    if is_api and request.method in UNSAFE_METHODS and not settings.allow_all_origins:
         origin = request.headers.get("origin")
         if request.headers.get("sec-fetch-site") == "cross-site" or (
             origin
@@ -80,6 +81,21 @@ async def security_middleware(request: Request, call_next):
     response = await call_next(request)
     _apply_headers(response, is_api=is_api)
     return response
+
+
+# CORS, added after the security middleware so it runs first and answers preflight requests.
+# Browsers reject "*" together with cookies, so "allow all" echoes back the caller's origin.
+_cors_origins = {"allow_origin_regex": ".*"} if settings.allow_all_origins else {
+    "allow_origins": sorted(settings.allowed_origins)
+}
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+    max_age=600,
+    **_cors_origins,
+)
 
 
 def _apply_headers(response, *, is_api: bool) -> None:

@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     )
     turnstile_timeout_seconds: float = Field(default=5.0, alias="TURNSTILE_TIMEOUT_SECONDS")
 
-    # Comma-separated list of browser origins allowed to POST (CSRF same-origin check).
+    # Comma-separated list of browser origins allowed to call the API (CORS + CSRF origin check).
+    # Use "*" to allow every origin.
     app_url: str = Field(default="http://localhost:5173", alias="APP_URL")
 
     # Cookie Secure flag. Defaults to on in production.
@@ -53,6 +54,11 @@ class Settings(BaseSettings):
     @property
     def allowed_origins(self) -> set[str]:
         return {o.strip().rstrip("/") for o in self.app_url.split(",") if o.strip()}
+
+    @property
+    def allow_all_origins(self) -> bool:
+        """APP_URL=* lets any browser origin call the API (CORS and the CSRF origin check)."""
+        return "*" in self.allowed_origins
 
     @property
     def secure_cookies(self) -> bool:
